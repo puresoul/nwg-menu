@@ -257,7 +257,7 @@ func listDesktopFiles() []string {
 }
 
 func setUpCategories() {
-	path := "/usr/share/nwg-menu/desktop-directories"
+	path := "/usr/local/share/nwg-menu/desktop-directories"
 	var other category
 
 	for _, cName := range categoryNames {

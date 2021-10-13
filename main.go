@@ -103,7 +103,7 @@ var (
 var cssFileName = flag.String("s", "menu-start.css", "Styling: css file name")
 var targetOutput = flag.String("o", "", "name of the Output to display the menu on")
 var displayVersion = flag.Bool("v", false, "display Version information")
-var autohide = flag.Bool("d", false, "auto-hiDe: close window when left")
+var autohide = flag.Int("d", 100, "auto-hiDe: close window when left")
 var valign = flag.String("va", "bottom", "Vertical Alignment: \"bottom\" or \"top\"")
 var halign = flag.String("ha", "left", "Horizontal Alignment: \"left\" or \"right\"")
 var marginTop = flag.Int("mt", 0, "Margin Top")
@@ -121,6 +121,7 @@ var cmdLock = flag.String("cmd-lock", "swaylock -f -c 000000", "screen lock comm
 var cmdLogout = flag.String("cmd-logout", "swaymsg exit", "logout command")
 var cmdRestart = flag.String("cmd-restart", "systemctl reboot", "reboot command")
 var cmdShutdown = flag.String("cmd-shutdown", "systemctl -i poweroff", "shutdown command")
+
 
 func main() {
 	timeStart := time.Now()
@@ -172,13 +173,6 @@ func main() {
 	}
 	println(fmt.Sprintf("lang: %s", *lang))
 
-	// ENVIRONMENT
-	configDirectory = configDir()
-
-	if !pathExists(filepath.Join(configDirectory, "menu-start.css")) {
-		copyFile("/usr/share/nwg-menu/menu-start.css", filepath.Join(configDirectory, "menu-start.css"))
-	}
-
 	cacheDirectory := cacheDir()
 	if cacheDirectory == "" {
 		log.Panic("Couldn't determine cache directory location")
@@ -191,7 +185,7 @@ func main() {
 		pinned = nil
 	}
 
-	cssFile := filepath.Join(configDirectory, *cssFileName)
+	cssFile := filepath.Join("/usr/local/share/nwg-menu/", *cssFileName)
 
 	appDirs = getAppDirs()
 
@@ -204,6 +198,8 @@ func main() {
 
 	// USER INTERFACE
 	gtk.Init(nil)
+
+    _, err = gtk.ApplicationNew("org.gtk.example", glib.APPLICATION_FLAGS_NONE)
 
 	cssProvider, _ := gtk.CssProviderNew()
 
@@ -225,17 +221,20 @@ func main() {
 	layershell.InitForWindow(win)
 
 	var output2mon map[string]*gdk.Monitor
-	if *targetOutput != "" {
-		// We want to assign layershell to a monitor, but we only know the output name!
-		output2mon, err = mapOutputs()
-		if err == nil {
-			monitor := output2mon[*targetOutput]
-			layershell.SetMonitor(win, monitor)
 
-		} else {
-			println(err)
-		}
+	output2mon, _ = mapOutputs()
+
+	if *targetOutput == "list" {
+		println(fmt.Sprintf("Outputs: %s", output2mon))
+		gtk.MainQuit()
+		return
 	}
+
+	if *targetOutput != "" {
+		monitor := output2mon[*targetOutput]
+		layershell.SetMonitor(win, monitor)
+	}
+
 
 	if *valign == "bottom" {
 		layershell.SetAnchor(win, layershell.LAYER_SHELL_EDGE_BOTTOM, true)
@@ -262,37 +261,27 @@ func main() {
 		gtk.MainQuit()
 	})
 
+
 	win.Connect("key-release-event", func(window *gtk.Window, event *gdk.Event) {
 		key := &gdk.EventKey{Event: event}
 		if key.KeyVal() == gdk.KEY_Escape {
-			s, _ := searchEntry.GetText()
-			if s != "" {
-				clearSearchResult()
-				searchEntry.GrabFocus()
-				searchEntry.SetText("")
-			} else {
-				if resultWindow == nil || !resultWindow.GetVisible() {
-					gtk.MainQuit()
-				} else {
-					clearSearchResult()
-				}
-			}
+			gtk.MainQuit()
 		}
 	})
 
 	// Close the window on leave, but not immediately, to avoid accidental closes
-	win.Connect("leave-notify-event", func() {
-		if *autohide {
-			src = glib.TimeoutAdd(uint(1000), func() bool {
+	win.Connect("leave-notify-event", func() {		
+			src = glib.TimeoutAdd(uint(*autohide), func() bool {
 				gtk.MainQuit()
 				return false
 			})
-		}
 	})
 
 	win.Connect("enter-notify-event", func() {
-		cancelClose()
+		searchEntry.GrabFocus()
 	})
+
+	
 
 	outerBox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
 	win.Add(outerBox)
@@ -308,9 +297,9 @@ func main() {
 	leftBox.PackStart(leftColumn, false, false, 0)
 
 	searchEntry = setUpSearchEntry()
-	if *valign == "top" {
-		leftColumn.PackStart(searchEntry, false, false, 10)
-	}
+//	if *valign == "top" {
+		leftColumn.PackStart(searchEntry, false, false, 20)
+//	}
 
 	pinnedListBox = setUpPinnedListBox()
 	leftColumn.PackStart(pinnedListBox, false, false, 10)
@@ -318,9 +307,9 @@ func main() {
 	categoriesListBox = setUpCategoriesListBox()
 	leftColumn.PackStart(categoriesListBox, false, false, 10)
 
-	if *valign != "top" {
-		leftColumn.PackEnd(searchEntry, false, false, 10)
-	}
+//	if *valign != "top" {
+		leftColumn.PackEnd(searchEntry, false, false, 20)
+//	}
 
 	rightBox, _ = gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
 	alignmentBox.PackStart(rightBox, true, true, 10)
@@ -342,7 +331,7 @@ func main() {
 
 	buttonBox = setUpButtonBox()
 	buttonsWrapper.PackStart(buttonBox, false, false, 10)
-	rightColumn.PackEnd(buttonsWrapper, false, true, 0)
+	//rightColumn.PackEnd(buttonsWrapper, false, true, 0)
 
 	//win.SetSizeRequest(0, *windowHeigth)
 
@@ -352,8 +341,9 @@ func main() {
 
 	pinnedListBox.UnselectAll()
 	categoriesListBox.UnselectAll()
-	searchEntry.GrabFocus()
 	t := time.Now()
 	println(fmt.Sprintf("UI created in %v ms. Thanks for watching.", t.Sub(timeStart).Milliseconds()))
+	win.Stick()
+	win.SetStartupID("nwg-menu")
 	gtk.Main()
 }
