@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
+//	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -103,7 +103,7 @@ var (
 var cssFileName = flag.String("s", "menu-start.css", "Styling: css file name")
 var targetOutput = flag.String("o", "", "name of the Output to display the menu on")
 var displayVersion = flag.Bool("v", false, "display Version information")
-var autohide = flag.Int("d", 100, "auto-hiDe: close window when left")
+var autohide = flag.Int("d", 700, "auto-hiDe: close window when left")
 var valign = flag.String("va", "bottom", "Vertical Alignment: \"bottom\" or \"top\"")
 var halign = flag.String("ha", "left", "Horizontal Alignment: \"left\" or \"right\"")
 var marginTop = flag.Int("mt", 0, "Margin Top")
@@ -145,28 +145,29 @@ func main() {
 		}
 	}()
 
-	// We want the same key/mouse binding to turn the dock off: kill the running instance and exit.
-	lockFilePath := fmt.Sprintf("%s/nwg-menu.lock", tempDir())
-	lockFile, err := singleinstance.CreateLockFile(lockFilePath)
+	var err error
+
+    lockFilePath := fmt.Sprintf("%s/nwg-menu.lock", tempDir())
+    lockFile, err := singleinstance.CreateLockFile(lockFilePath)
 	if err != nil {
-		pid, err := readTextFile(lockFilePath)
+		_, err := readTextFile("/tmp/nwg-menu.lock")
 		if err == nil {
-			i, err := strconv.Atoi(pid)
+//			i, err := strconv.Atoi(pid)
 			if err == nil {
-				/*if !*autohide {
-					println("Running instance found, sending SIGTERM and exiting...")
-					syscall.Kill(i, syscall.SIGTERM)
-				} else {
+//				if !*autohide {
+//					println("Running instance found, sending SIGTERM and exiting...")
+//					syscall.Kill(i, syscall.SIGTERM)
+//				} else {
 					println("Already running")
-				}*/
-				println("Running instance found, sending SIGTERM and exiting...")
-				syscall.Kill(i, syscall.SIGTERM)
+//				}
+//				println("Running instance found, sending SIGTERM and exiting...")
+//				syscall.Kill(i, syscall.SIGTERM)
 			}
 		}
 		os.Exit(0)
 	}
 	defer lockFile.Close()
-
+	
 	// LANGUAGE
 	if *lang == "" && os.Getenv("LANG") != "" {
 		*lang = strings.Split(os.Getenv("LANG"), ".")[0]
@@ -199,8 +200,6 @@ func main() {
 	// USER INTERFACE
 	gtk.Init(nil)
 
-    _, err = gtk.ApplicationNew("org.gtk.example", glib.APPLICATION_FLAGS_NONE)
-
 	cssProvider, _ := gtk.CssProviderNew()
 
 	err = cssProvider.LoadFromPath(cssFile)
@@ -225,7 +224,9 @@ func main() {
 	output2mon, _ = mapOutputs()
 
 	if *targetOutput == "list" {
-		println(fmt.Sprintf("Outputs: %s", output2mon))
+		for o, _ := range output2mon {
+			println(fmt.Sprintf("Output: %#v", o))
+		}
 		gtk.MainQuit()
 		return
 	}
@@ -261,7 +262,6 @@ func main() {
 		gtk.MainQuit()
 	})
 
-
 	win.Connect("key-release-event", func(window *gtk.Window, event *gdk.Event) {
 		key := &gdk.EventKey{Event: event}
 		if key.KeyVal() == gdk.KEY_Escape {
@@ -278,10 +278,9 @@ func main() {
 	})
 
 	win.Connect("enter-notify-event", func() {
+		cancelClose()
 		searchEntry.GrabFocus()
 	})
-
-	
 
 	outerBox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
 	win.Add(outerBox)
