@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-//	"strconv"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -150,15 +150,16 @@ func main() {
     lockFilePath := fmt.Sprintf("%s/nwg-menu.lock", tempDir())
     lockFile, err := singleinstance.CreateLockFile(lockFilePath)
 	if err != nil {
-		_, err := readTextFile("/tmp/nwg-menu.lock")
+		pid, err := readTextFile("/tmp/nwg-menu.lock")
 		if err == nil {
-//			i, err := strconv.Atoi(pid)
+			i, err := strconv.Atoi(pid)
 			if err == nil {
 //				if !*autohide {
 //					println("Running instance found, sending SIGTERM and exiting...")
-//					syscall.Kill(i, syscall.SIGTERM)
+
 //				} else {
 					println("Already running")
+					syscall.Kill(i, syscall.SIGTERM)
 //				}
 //				println("Running instance found, sending SIGTERM and exiting...")
 //				syscall.Kill(i, syscall.SIGTERM)
